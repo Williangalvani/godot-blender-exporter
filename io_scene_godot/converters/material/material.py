@@ -54,11 +54,71 @@ def export_material(escn_file, export_settings, bl_object, material):
     )
     return "SubResource({})".format(resource_id)
 
+from .script_shader.node_tree import find_material_output_node, topology_sort
 
-def export_as_spatial_material(material_rsc_name, material):
+
+def extract(escn_file, input):
+    name = input.name
+    namemap = {"Base Color": "albedo",
+           "Metallic": "metallic",
+           "Specular": "specular",
+           "Roughness": "roughness",
+           "Normal": "normal"}
+    try:
+        name = namemap[input.name]
+    except:
+        return None, None
+
+    if input.is_linked:
+        node = input.links[0].from_socket.node 
+        if node.bl_idname ==  'ShaderNodeTexImage':
+            name = name + "_texture"
+            value = "ExtResource( {0} )".format(escn_file.get_external_resource(node.image))
+        else:
+            return None, None
+    else:
+        name = name + "_color"
+        value = input.default_value
+        if "bpy_prop_array" in str(type(value)):
+            v = list(value)
+            value = "Color( {0}, {1}, {2}, {3} )".format(*v)
+    return name, value
+
+
+def parse_shader_node_tree_spatial(escn_file, shader_node_tree):
+    """Parse blender shader node tree"""
+    mtl_output_node = find_material_output_node(shader_node_tree)
+    data = {}
+    if mtl_output_node is not None:
+        frag_node_list = topology_sort(shader_node_tree.nodes)
+
+        for idx, node in enumerate(frag_node_list):
+            if node == mtl_output_node:
+                continue
+
+        surface_output_socket = mtl_output_node.inputs['Surface']
+        if surface_output_socket.is_linked:
+            surface_in_socket = surface_output_socket.links[0].from_socket
+            for input in surface_in_socket.node.inputs:
+                name, value = extract(escn_file, input)
+                if name is not None:
+                    data[name] = value
+
+    print(data)
+    return data
+    
+
+def export_as_spatial_material(escn_file, material_rsc_name, material, bl_object):
     """Export a Blender Material as Godot Spatial Material"""
     mat = InternalResource("SpatialMaterial", material_rsc_name)
-    mat['albedo_color'] = gamma_correct(material.diffuse_color)
+    shader_node_tree = material.node_tree
+    data = parse_shader_node_tree_spatial(escn_file, shader_node_tree)
+    for key, value in data.items():
+        mat[key] = value
+    if "normal_texture" in data:
+        mat["normal_enabled"] = "true"
+    #mat[''] = data['albedo_color']
+
     return mat
 
 
@@ -81,16 +141,22 @@ def generate_material_resource(escn_file, export_settings, bl_object,
         mat = InternalResource("ShaderMaterial", material_rsc_name)
         try:
             export_script_shader(
-                escn_file, export_settings, bl_object, material, mat
+                escn_file, export_settings, bl_object, material, mat 
             )
         except ValidationError as exception:
             # fallback to SpatialMaterial
-            mat = export_as_spatial_material(material_rsc_name, material)
+            mat = export_as_spatial_material(escn_file, material_rsc_name, material, mat)
             logging.error(
                 "%s, in material '%s'", str(exception), material.name
             )
     else:  # Spatial Material
-        mat = export_as_spatial_material(material_rsc_name, material)
+        try:
+            export_script_shader(
+                    escn_file, export_settings, bl_object, material, mat, True
+                )
+        except ValidationError:
+            pass
+        mat = export_as_spatial_material(escn_file, material_rsc_name, material, bl_object)
 
     # make material-object tuple as an identifier, as uniforms is part of
     # material and they are binded with object

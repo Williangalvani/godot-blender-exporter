@@ -398,6 +398,7 @@ class AxisAlignedBoundBox:
 
 def export_image_name(image):
     """Generate name according to Blender image name and format"""
+    print(image)
     if image.file_format in ('JPEG', 'JPEG2000'):
         valid_extension_names = ('.jpg', '.jpeg')
     else:
@@ -408,7 +409,8 @@ def export_image_name(image):
 
     # add extension information to image name, any one in the extension
     # names list is valid, for simplity just choose the first one
-    return image.name + valid_extension_names[0]
+    
+    return image.name
 
 
 def export_texture(escn_file, export_settings, image):
@@ -438,7 +440,7 @@ def export_texture(escn_file, export_settings, image):
     return escn_file.add_external_resource(img_resource, image)
 
 
-def parse_shader_node_tree(escn_file, export_settings, shader_node_tree):
+def parse_shader_node_tree(escn_file, export_settings, shader_node_tree, force_export=False):
     """Parse blender shader node tree"""
     shader = ScriptShader()
 
@@ -496,7 +498,12 @@ def parse_shader_node_tree(escn_file, export_settings, shader_node_tree):
                     root_converter.out_sockets_map[surface_in_socket]
                 )
 
-    if not exportable:
+    if force_export:
+        for image in shader.get_images():
+            export_texture(escn_file, export_settings, image)
+        return None
+
+    if not exportable or force_export:
         return None
 
     # export used textures
@@ -504,10 +511,11 @@ def parse_shader_node_tree(escn_file, export_settings, shader_node_tree):
         export_texture(escn_file, export_settings, image)
 
     return shader
+    
 
 
 def export_script_shader(escn_file, export_settings, bl_object,
-                         bl_node_mtl, gd_shader_mtl):
+                         bl_node_mtl, gd_shader_mtl, force_export=False):
     """Export cycles material to godot shader script"""
     shader_node_tree = bl_node_mtl.node_tree
 
@@ -518,7 +526,7 @@ def export_script_shader(escn_file, export_settings, bl_object,
         assert shader_rsc.heading["id"] == shader_rsc_id
     else:
         shader = parse_shader_node_tree(escn_file, export_settings,
-                                        shader_node_tree)
+                                        shader_node_tree, force_export)
         if shader is None:
             raise ValidationError(
                 "Blender material '%s' not able to export as Shader Material"
