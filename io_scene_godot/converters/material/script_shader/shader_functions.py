@@ -414,20 +414,20 @@ void node_mapping(vec3 vec, mat4 mat, vec3 minvec, vec3 maxvec, float domin,
 """),
 
     ShaderFunction(code="""
-void node_math_add_no_clamp(float value1, float value2, out float result) {
+void node_math_add_no_clamp(float value1, float value2, float unused, out float result) {
     result = value1 +  value2;
 }
 """),
 
     ShaderFunction(code="""
-void node_math_subtract_no_clamp(float value1, float value2,
+void node_math_subtract_no_clamp(float value1, float value2, float unused,
         out float result) {
     result = value1 - value2;
 }
 """),
 
     ShaderFunction(code="""
-void node_math_multiply_no_clamp(float value1, float value2,
+void node_math_multiply_no_clamp(float value1, float value2, float unused,
         out float result) {
     result = value1 * value2;
 }
@@ -443,7 +443,7 @@ void node_math_divide_no_clamp(float value1, float value2, out float result) {
 """),
 
     ShaderFunction(code="""
-void node_math_power_no_clamp(float val1, float val2, out float outval) {
+void node_math_power_no_clamp(float val1, float val2, float unused, out float outval) {
     outval = pow(val1, val2);
 }
 """),
@@ -584,7 +584,7 @@ void node_math_add_clamp(float value1, float value2, out float result) {
 """),
 
     ShaderFunction(code="""
-void node_math_subtract_clamp(float value1, float value2, out float result) {
+void node_math_subtract_clamp(float value1, float value2, float unused, out float result) {
     result = clamp(value1 - value2, 0.0, 1.0);
 }
 """),
@@ -735,7 +735,7 @@ void node_math_arctan2_clamp(float value1, float value2, out float result) {
 """),
 
     ShaderFunction(code="""
-void node_vector_math_add(vec3 v1, vec3 v2, out vec3 outvec,
+void node_vector_math_add(vec3 v1, vec3 v2, vec3 unused, float unused2, out vec3 outvec,
         out float outval) {
     outvec = v1 + v2;
     outval = (abs(outvec[0]) + abs(outvec[1]) + abs(outvec[2])) * 0.333333;
